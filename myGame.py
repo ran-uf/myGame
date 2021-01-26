@@ -1,6 +1,7 @@
 import pygame
 import sys
 import numpy as np
+import time
 
 
 class MyObject(pygame.sprite.Sprite):
@@ -13,13 +14,37 @@ class MyObject(pygame.sprite.Sprite):
             self.screen = pygame.display.set_mode((1200, 800))
         else:
             self.screen = screen
-        self.pos = np.random.random(2)
+        self.screen_rect = screen.get_rect()
+        self.pos = np.random.random(2) * np.array([self.screen_rect.width, self.screen_rect.height])
+        self.angle = np.random.random(1) * 2 * np.pi
+        self.speed = np.random.random(1)
 
     def next_pos(self):
-        direction = np.random.random() * 2 * np.pi
-        delta_x, delta_y = np.cos(direction), np.sin(direction)
-        self.pos[0] += delta_x
-        self.pos[1] += delta_y
+        x = self.pos[0] + self.speed * np.cos(self.angle)
+        y = self.pos[1] + self.speed * np.sin(self.angle)
+        if x > self.screen_rect.width:
+            self.pos[0] = self.screen_rect.width
+            self.rect.centerx = self.screen_rect.width
+            self.angle = np.pi - self.angle
+        elif x < 0:
+            self.pos[0] = 0
+            self.rect.centerx = 0
+            self.angle = np.pi - self.angle
+        else:
+            self.pos[0] = x
+            self.rect.centerx = int(x)
+
+        if y > self.screen_rect.height:
+            self.pos[1] = self.screen_rect.height
+            self.rect.centery = self.screen_rect.height
+            self.angle = -self.angle
+        elif y < 0:
+            self.pos[1] = 0
+            self.rect.centery = 0
+            self.angle = -self.angle
+        else:
+            self.pos[1] = y
+            self.rect.centery = int(y)
 
     def blit(self):
         self.screen.blit(self.image, self.rect)
@@ -31,10 +56,12 @@ class Food(MyObject):
         self.image = pygame.image.load('images/food.png')
         self.rect = self.image.get_rect()
         self.screen_rect = screen.get_rect()
-        self.rect.centerx = int(np.random.random() * self.screen_rect.width)
-        self.rect.centery = int(np.random.random() * self.screen_rect.height)
+        self.rect.centerx = int(self.pos[0])
+        self.rect.centery = int(self.pos[1])
 
     def update(self):
+        if self.moving is True:
+            self.next_pos()
         self.screen.blit(self.image, self.rect)
 
 
@@ -44,10 +71,12 @@ class Killer(MyObject):
         self.image = pygame.image.load('images/killer.png')
         self.rect = self.image.get_rect()
         self.screen_rect = screen.get_rect()
-        self.rect.centerx = int(np.random.random() * self.screen_rect.width)
-        self.rect.centery = int(np.random.random() * self.screen_rect.height)
+        self.rect.centerx = int(self.pos[0])
+        self.rect.centery = int(self.pos[1])
 
     def update(self):
+        if self.moving is True:
+            self.next_pos()
         self.screen.blit(self.image, self.rect)
 
 
@@ -57,10 +86,12 @@ class NoneObject(MyObject):
         self.image = pygame.image.load('images/grass.png')
         self.rect = self.image.get_rect()
         self.screen_rect = screen.get_rect()
-        self.rect.centerx = int(np.random.random() * self.screen_rect.width)
-        self.rect.centery = int(np.random.random() * self.screen_rect.height)
+        self.rect.centerx = int(self.pos[0])
+        self.rect.centery = int(self.pos[1])
 
     def update(self):
+        if self.moving is True:
+            self.next_pos()
         self.screen.blit(self.image, self.rect)
 
 
