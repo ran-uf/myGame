@@ -2,6 +2,7 @@ import pygame
 import sys
 import numpy as np
 import time
+import os
 
 
 class MyObject(pygame.sprite.Sprite):
@@ -58,11 +59,13 @@ class Food(MyObject):
         self.screen_rect = screen.get_rect()
         self.rect.centerx = int(self.pos[0])
         self.rect.centery = int(self.pos[1])
+        self.reward = 1
 
-    def update(self):
+    def update(self, display=True):
         if self.moving is True:
             self.next_pos()
-        self.screen.blit(self.image, self.rect)
+        if display:
+            self.screen.blit(self.image, self.rect)
 
 
 class Killer(MyObject):
@@ -73,11 +76,13 @@ class Killer(MyObject):
         self.screen_rect = screen.get_rect()
         self.rect.centerx = int(self.pos[0])
         self.rect.centery = int(self.pos[1])
+        self.reward = -100
 
-    def update(self):
+    def update(self, display=True):
         if self.moving is True:
             self.next_pos()
-        self.screen.blit(self.image, self.rect)
+        if display:
+            self.screen.blit(self.image, self.rect)
 
 
 class NoneObject(MyObject):
@@ -88,11 +93,13 @@ class NoneObject(MyObject):
         self.screen_rect = screen.get_rect()
         self.rect.centerx = int(self.pos[0])
         self.rect.centery = int(self.pos[1])
+        self.reward = 0
 
-    def update(self):
+    def update(self, display=True):
         if self.moving is True:
             self.next_pos()
-        self.screen.blit(self.image, self.rect)
+        if display:
+            self.screen.blit(self.image, self.rect)
 
 
 class Agent(MyObject):
@@ -123,11 +130,30 @@ class Agent(MyObject):
             if self.rect.centery < self.screen_rect.height:
                 self.rect.centery += 1
 
-    def update(self):
+    def update(self, display=True):
         if self.event_key is not None:
             if self.moving:
                 self.move(self.event_key)
-        self.blit()
+        if display:
+            self.blit()
+
+    #  0 right 1 left 2 up 3 down 4 no action
+    def step(self, action, display=False):
+        if action == 0:
+            if self.rect.centerx < self.screen_rect.width:
+                self.rect.centerx += 1
+        elif action == 1:
+            if self.rect.centerx > 0:
+                self.rect.centerx -= 1
+        elif action == 2:
+            if self.rect.centery > 0:
+                self.rect.centery -= 1
+        elif action == 3:
+            if self.rect.centery < self.screen_rect.height:
+                self.rect.centery += 1
+        if display:
+            self.blit()
+        return self.pos
 
 
 class MyGame:
@@ -164,25 +190,30 @@ class MyGame:
         self.screen.blit(score.render("scores: " + str(self.score), True, pygame.Color(255, 0, 0), pygame.Color(230, 230, 230)),
                          (50, 50))
 
-    def check_events(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                sys.exit()
-            elif event.type == pygame.KEYDOWN:
-                self.agent.moving = True
-                self.agent.event_key = event.key
-            elif event.type == pygame.KEYUP:
-                self.agent.moving = False
-
+    def check_events(self, keyboard=True):
+        if keyboard:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    self.agent.moving = True
+                    self.agent.event_key = event.key
+                elif event.type == pygame.KEYUP:
+                    self.agent.moving = False
+        reward = 0
         ls = pygame.sprite.spritecollide(self.agent, self.foods, True)
         n = len(ls)
         if n != 0:
             self.score += n
+            reward = n
             for i in range(n):
                 self.foods.add(Food(self.screen))
 
         ls = pygame.sprite.spritecollide(self.agent, self.killers, False)
         if len(ls) != 0:
+            reward = -100
+            if not keyboard:
+                return reward
             text = pygame.font.Font('freesansbold.ttf', 115)
             self.screen.blit(text.render('killed', True, pygame.Color(255, 0, 0), pygame.Color(230, 230, 230)), (500, 300))
             pygame.display.flip()
@@ -191,6 +222,7 @@ class MyGame:
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                         sys.exit()
+        return reward
 
     def run(self):
         pygame.init()
@@ -206,7 +238,46 @@ class MyGame:
             # visualiaze the window
             pygame.display.flip()
 
+    def step(self, action):
+        self.screen.fill(self.bg_color)
+        agent_pos = self.agent.step(action, display=True)
+        food_pos = []
+        killer_pos = []
+        o_pos = []
+        for food in self.foods.sprites():
+            food.update()
+            food_pos.append(food.rect.center)
+        for killer in self.killers.sprites():
+            killer.update()
+            killer_pos.append(killer.rect.center)
+        for o in self.none_objects.sprites():
+            o.update()
+            o_pos.append(o.rect.center)
+        reward = self.check_events(keyboard=False)
+        print(reward)
+        return reward, agent_pos, food_pos, killer_pos, o_pos
+
 
 if __name__ == "__main__":
+
+    display = False
+    if not display:
+        os.environ["SDL_VIDEODRIVER"] = "dummy"
+
     gm = MyGame()
-    gm.run()
+    pygame.init()
+    pygame.display.set_caption("myGame")
+    score = pygame.font.Font('freesansbold.ttf', 30)
+    flag = True
+    while flag:
+        reward, agent_pos, food_rect, killer_rect, o_rect = gm.step(4)
+        time.sleep(0.01)
+        if reward == -100:
+            flag = False
+        pygame.display.flip()
+        surface = pygame.display.get_surface()
+
+        img = pygame.image.frombuffer(surface.get_buffer(), (1200, 800), )
+        pygame.image.save(surface, "screenshot.jpg")
+        del surface
+
